@@ -1,4 +1,5 @@
 import random
+import string
 
 import uvicorn as uvicorn
 from fastapi import FastAPI
@@ -6,6 +7,7 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+id_length = 20
 
 
 class Item(BaseModel):
@@ -14,8 +16,20 @@ class Item(BaseModel):
     price: float
     tax: float | None = None
 
+
 class ItemWithId(Item):
     id: str
+
+
+mockDb = []
+
+
+def get_random_string(length):
+    letters = string.ascii_lowercase
+    digits = string.digits
+    result_str = ''.join(random.choice(letters + digits) for _ in range(length))
+    return result_str
+
 
 @app.post("/items")
 async def create_item(item: Item):
@@ -24,13 +38,24 @@ async def create_item(item: Item):
         description=item.description,
         price=item.price,
         tax=item.tax,
-        id=random.randint(0,9)
+        id=get_random_string(id_length)
     )
+    mockDb.append(itemWithId)
     return itemWithId
+
 
 @app.get("/items/{item_id}")
 async def read_item(item_id):
-    return {"item_id": item_id}
+    for i in range(len(mockDb)):
+        if mockDb[i].id == item_id:
+            return mockDb[i]
+    return "Not found"
+
+
+@app.get("/items")
+async def read_items():
+    return mockDb
+
 
 @app.get("/")
 async def root():
@@ -39,8 +64,6 @@ async def root():
 
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
 
 
 def print_hi(name):
