@@ -4,4 +4,6 @@ motor
 requests
 fastapi
 uvicorn
+redis
 python-multipart
+prometheus_fastapi_instrumentator

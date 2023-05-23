@@ -5,6 +5,7 @@ import io
 import json
 import random
 import string
+import sys
 import time
 import uuid
 from argparse import ArgumentParser
@@ -55,19 +56,19 @@ def generate_md5():
 
 def generate_file():
     file_len = random.randint(160, 1_000_000)
-    file_conents = random.randbytes(file_len)
-    file_md5 = hashlib.md5(file_conents).hexdigest()
-    return file_conents, file_md5
+    file_contents = random.randbytes(file_len)
+    file_md5 = hashlib.md5(file_contents).hexdigest()
+    return file_contents, file_md5
 
 
-class VeridctModel(pydantic.BaseModel):
+class VerdictModel(pydantic.BaseModel):
     hash: str
     risk_level: int
 
 
 class ResponseModel(pydantic.BaseModel):
-    file: VeridctModel
-    process: VeridctModel
+    file: VerdictModel
+    process: VerdictModel
 
 
 async def main():
@@ -144,7 +145,12 @@ async def main():
 
                 if args.port:
                     async with session.post(url + '/events/', json=event) as resp:
-                        result = ResponseModel.parse_raw(await resp.text())
+                        text = await resp.text()
+                        try:
+                            result = ResponseModel.parse_raw(text)
+                        except pydantic.ValidationError as e:
+                            print(f'invalid response: {text} {e}')
+                            sys.exit(1)
 
                     print(f'event {file_event["file_hash"]} -> {result.dict()}')
                     expected_verdict = {}
@@ -155,7 +161,12 @@ async def main():
                             form.add_field('file', filesystem[verdict.hash])
                             async with session.post(url + '/scan_file/', data=form) as resp:
                                 text = await resp.text()
-                                upload_result = VeridctModel.parse_raw(text)
+
+                                try:
+                                    upload_result = VerdictModel.parse_raw(text)
+                                except pydantic.ValidationError as e:
+                                    print(f'invalid response: {text} {e}')
+                                    sys.exit(1)
                                 print(f'\tupload {verdict.hash} -> {upload_result}')
                                 if verdict.hash != upload_result.hash:
                                     print(f'\t\tERROR! hash mismatch in upload response')
